@@ -1,0 +1,10 @@
+[package]
+name = "directory_lister"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
