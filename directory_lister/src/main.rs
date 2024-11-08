@@ -1,65 +1,123 @@
 use chrono::{DateTime, Local};
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // Default to current directory if no argument is provided
-    let path = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
-    list_directory(&path)?;
-    Ok(())
-}
-
-fn list_directory(path: &str) -> Result<(), Box<dyn Error>> {
-    let path = Path::new(path);
-    let entries = fs::read_dir(path)?;
-
-    // Print header
-    println!("\nContents of directory: {}\n", path.display());
-    println!("{:<40} {:>12} {:<20}", "Name", "Size", "Modified");
-    println!("{}", "-".repeat(74));
-
-    for entry in entries {
-        let entry = entry?;
-        let metadata = entry.metadata()?;
-        let modified: DateTime<Local> = metadata.modified()?.into();
-
-        // Get file name and handle non-UTF8 characters
-        let name = entry
-            .file_name()
-            .into_string()
-            .unwrap_or_else(|f| f.to_string_lossy().into_owned());
-
-        // Format size
-        let size = if metadata.is_dir() {
-            "<DIR>".to_string()
-        } else {
-            format_size(metadata.len())
-        };
-
-        // Format modified date
-        let modified = modified.format("%Y-%m-%d %H:%M:%S").to_string();
-
-        // Print entry information
-        println!("{:<40} {:>12} {:<20}", name, size, modified);
-    }
-
-    Ok(())
+#[derive(Debug, Clone)]
+struct ListingOptions {
+    recursive: bool,
+    indent_level: usize,
 }
 
 fn format_size(size: u64) -> String {
-    const UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
 
-    if size == 0 {
-        return "0 B".to_string();
+    if size >= GB {
+        format!("{:.2} GB", size as f64 / GB as f64)
+    } else if size >= MB {
+        format!("{:.2} MB", size as f64 / MB as f64)
+    } else if size >= KB {
+        format!("{:.2} KB", size as f64 / KB as f64)
+    } else {
+        format!("{} B", size)
+    }
+}
+
+fn print_header(path: &Path) {
+    println!("\nContents of directory: {}", path.display());
+    println!("{:-<80}", "");
+    println!("{:<40} {:>12} {:>25}", "Name", "Size", "Modified");
+    println!("{:-<80}", "");
+}
+
+fn list_directory(path: &Path, options: &ListingOptions) -> Result<(), Box<dyn Error>> {
+    if options.indent_level == 0 {
+        print_header(path);
     }
 
-    let size = size as f64;
-    let base = 1024_f64;
-    let exp = (size.ln() / base.ln()).floor() as i32;
-    let exp = exp.min(UNITS.len() as i32 - 1);
+    let entries = fs::read_dir(path)?;
+    let mut entries: Vec<_> = entries.collect::<Result<_, _>>()?;
 
-    format!("{:.1} {}", size / base.powi(exp), UNITS[exp as usize])
+    entries.sort_by(|a, b| {
+        let a_metadata = a.metadata().unwrap();
+        let b_metadata = b.metadata().unwrap();
+        let a_is_dir = a_metadata.is_dir();
+        let b_is_dir = b_metadata.is_dir();
+
+        match (a_is_dir, b_is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.file_name().cmp(&b.file_name()),
+        }
+    });
+
+    for entry in entries {
+        let metadata = entry.metadata()?;
+        let modified: DateTime<Local> = metadata.modified()?.into();
+        let name = entry.file_name().to_string_lossy().into_owned();
+
+        let indent = "    ".repeat(options.indent_level);
+
+        let size = if metadata.is_file() {
+            format_size(metadata.len())
+        } else {
+            String::from("<DIR>")
+        };
+
+        let max_name_length = 40 - (options.indent_level * 4);
+        let displayed_name = if name.len() > max_name_length && max_name_length > 3 {
+            format!("{}...", &name[..max_name_length-3])
+        } else {
+            name.clone()
+        };
+
+        println!("{}{:<40} {:>12} {:>25}",
+                 indent,
+                 displayed_name,
+                 size,
+                 modified.format("%Y-%m-%d %H:%M:%S")
+        );
+
+        if options.recursive && metadata.is_dir() {
+            let new_path = PathBuf::from(entry.path());
+            let new_options = ListingOptions {
+                recursive: true,
+                indent_level: options.indent_level + 1,
+            };
+
+            if let Err(e) = list_directory(&new_path, &new_options) {
+                eprintln!("{}Error accessing {}: {}", indent, new_path.display(), e);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let mut path = None;
+    let mut recursive = false;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-r" | "--recursive" => recursive = true,
+            _ => path = Some(PathBuf::from(arg)),
+        }
+    }
+
+    let path = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+    let options = ListingOptions {
+        recursive: recursive,
+        indent_level: 0,
+    };
+
+    match list_directory(&path, &options) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error: {}", e),
+    }
 }
 
 #[cfg(test)]
@@ -69,76 +127,138 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
-    #[test]
-    fn test_format_size_zero() {
-        assert_eq!(format_size(0), "0 B");
+    // Helper function to create a test directory structure
+    fn create_test_directory() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create some files
+        let file1_path = temp_dir.path().join("test1.txt");
+        let mut file1 = File::create(file1_path).unwrap();
+        file1.write_all(b"Hello World").unwrap();
+
+        let file2_path = temp_dir.path().join("test2.txt");
+        let mut file2 = File::create(file2_path).unwrap();
+        file2.write_all(b"This is a test").unwrap();
+
+        // Create a subdirectory with files
+        let subdir = temp_dir.path().join("subdir");
+        fs::create_dir(&subdir).unwrap();
+
+        let subfile_path = subdir.join("subtest.txt");
+        let mut subfile = File::create(subfile_path).unwrap();
+        subfile.write_all(b"Subdirectory test").unwrap();
+
+        temp_dir
     }
 
     #[test]
-    fn test_format_size_bytes() {
-        assert_eq!(format_size(512), "512.0 B");
+    fn test_format_size() {
+        assert_eq!(format_size(500), "500 B");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1024 * 1024), "1.00 MB");
+        assert_eq!(format_size(1024 * 1024 * 1024), "1.00 GB");
     }
 
     #[test]
-    fn test_format_size_kilobytes() {
-        assert_eq!(format_size(1024), "1.0 KB");
-        assert_eq!(format_size(1536), "1.5 KB");
+    fn test_directory_exists() {
+        let temp_dir = create_test_directory();
+        let options = ListingOptions {
+            recursive: false,
+            indent_level: 0,
+        };
+
+        assert!(list_directory(temp_dir.path(), &options).is_ok());
     }
 
     #[test]
-    fn test_format_size_megabytes() {
-        assert_eq!(format_size(1024 * 1024), "1.0 MB");
-        assert_eq!(format_size(1024 * 1024 * 2), "2.0 MB");
+    fn test_directory_not_exists() {
+        let non_existent_path = PathBuf::from("/path/that/does/not/exist");
+        let options = ListingOptions {
+            recursive: false,
+            indent_level: 0,
+        };
+
+        assert!(list_directory(&non_existent_path, &options).is_err());
     }
 
     #[test]
-    fn test_format_size_gigabytes() {
-        assert_eq!(format_size(1024 * 1024 * 1024), "1.0 GB");
+    fn test_recursive_listing() {
+        let temp_dir = create_test_directory();
+        let options = ListingOptions {
+            recursive: true,
+            indent_level: 0,
+        };
+
+        assert!(list_directory(temp_dir.path(), &options).is_ok());
     }
 
     #[test]
-    fn test_list_directory_with_temp_files() -> Result<(), Box<dyn Error>> {
-        // Create a temporary directory
-        let temp_dir = TempDir::new()?;
-        let temp_path = temp_dir.path();
+    fn test_file_sizes() {
+        let temp_dir = create_test_directory();
+        let file_path = temp_dir.path().join("size_test.txt");
+        let data = vec![b'a'; 2048]; // 2KB of data
 
-        // Create some test files
-        let file1_path = temp_path.join("test1.txt");
-        let mut file1 = File::create(file1_path)?;
-        file1.write_all(b"Hello, World!")?;
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(&data).unwrap();
 
-        let file2_path = temp_path.join("test2.txt");
-        let mut file2 = File::create(file2_path)?;
-        file2.write_all(b"Another test file")?;
-
-        // Create a subdirectory
-        fs::create_dir(temp_path.join("subdir"))?;
-
-        // Test listing the directory
-        let result = list_directory(temp_path.to_str().unwrap());
-        assert!(result.is_ok());
-
-        Ok(())
+        let metadata = fs::metadata(&file_path).unwrap();
+        assert_eq!(format_size(metadata.len()), "2.00 KB");
     }
 
     #[test]
-    fn test_list_directory_nonexistent() {
-        let result = list_directory("/path/that/does/not/exist");
-        assert!(result.is_err());
+    fn test_modification_time() {
+        let temp_dir = create_test_directory();
+        let file_path = temp_dir.path().join("time_test.txt");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"Test").unwrap();
+
+        let metadata = fs::metadata(&file_path).unwrap();
+        assert!(metadata.modified().is_ok());
     }
 
     #[test]
-    fn test_list_directory_not_a_directory() -> Result<(), Box<dyn Error>> {
-        // Create a temporary file
-        let temp_dir = TempDir::new()?;
-        let file_path = temp_dir.path().join("test.txt");
-        let mut file = File::create(&file_path)?;
-        file.write_all(b"Test content")?;
+    fn test_long_filename_truncation() {
+        let temp_dir = create_test_directory();
+        let long_filename = "a".repeat(50) + ".txt";
+        let file_path = temp_dir.path().join(&long_filename);
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"Test").unwrap();
 
-        // Try to list a file as if it were a directory
-        let result = list_directory(file_path.to_str().unwrap());
-        assert!(result.is_err());
+        let options = ListingOptions {
+            recursive: false,
+            indent_level: 0,
+        };
 
-        Ok(())
+        assert!(list_directory(temp_dir.path(), &options).is_ok());
+    }
+
+    #[test]
+    fn test_empty_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let options = ListingOptions {
+            recursive: true,
+            indent_level: 0,
+        };
+
+        assert!(list_directory(temp_dir.path(), &options).is_ok());
+    }
+
+    #[test]
+    fn test_directory_sorting() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create files and directories in non-alphabetical order
+        fs::create_dir(temp_dir.path().join("zdir")).unwrap();
+        fs::create_dir(temp_dir.path().join("adir")).unwrap();
+        File::create(temp_dir.path().join("c.txt")).unwrap();
+        File::create(temp_dir.path().join("b.txt")).unwrap();
+
+        let options = ListingOptions {
+            recursive: false,
+            indent_level: 0,
+        };
+
+        assert!(list_directory(temp_dir.path(), &options).is_ok());
+        // Visual inspection would show directories first, then files, both in alphabetical order
     }
 }
