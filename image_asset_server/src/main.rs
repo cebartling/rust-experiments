@@ -1,47 +1,10 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Result};
 use image::{DynamicImage, ImageFormat};
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
 use tokio::fs;
 
-#[derive(Clone)]
-pub struct ServerConfig {
-    image_dir: PathBuf,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-}
-
-impl ServerConfig {
-    pub fn new<P: AsRef<Path>>(image_dir: P) -> Self {
-        Self {
-            image_dir: image_dir.as_ref().to_path_buf(),
-            max_width: None,
-            max_height: None,
-        }
-    }
-
-    pub fn with_max_dimensions(mut self, max_width: u32, max_height: u32) -> Self {
-        self.max_width = Some(max_width);
-        self.max_height = Some(max_height);
-        self
-    }
-
-    pub fn validate(&self) -> std::io::Result<()> {
-        if !self.image_dir.exists() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Image directory does not exist",
-            ));
-        }
-        if !self.image_dir.is_dir() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Image directory path is not a directory",
-            ));
-        }
-        Ok(())
-    }
-}
+mod config;
+use config::ServerConfig;
 
 #[derive(Deserialize)]
 struct ImageQuery {
@@ -60,10 +23,10 @@ impl ImageServer {
     }
 
     async fn load_image(&self, filename: &str) -> Option<DynamicImage> {
-        let path = self.config.image_dir.join(filename);
+        let path = self.config.image_dir().join(filename);
 
         // Prevent directory traversal attacks
-        if !path.starts_with(&self.config.image_dir) {
+        if !path.starts_with(&self.config.image_dir()) {
             return None;
         }
 
@@ -72,8 +35,9 @@ impl ImageServer {
     }
 
     fn validate_dimensions(&self, width: u32, height: u32) -> bool {
-        let width_valid = self.config.max_width.map_or(true, |max| width <= max);
-        let height_valid = self.config.max_height.map_or(true, |max| height <= max);
+        let (max_width, max_height) = self.config.max_dimensions();
+        let width_valid = max_width.map_or(true, |max| width <= max);
+        let height_valid = max_height.map_or(true, |max| height <= max);
         width_valid && height_valid
     }
 }
@@ -101,6 +65,7 @@ async fn get_image(
     let mut bytes: Vec<u8> = Vec::new();
     img.write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Jpeg)
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    
     Ok(HttpResponse::Ok()
         .content_type("image/jpeg")
         .body(bytes))
