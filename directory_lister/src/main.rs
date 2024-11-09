@@ -110,7 +110,7 @@ fn main() {
 
     let path = path.unwrap_or_else(|| std::env::current_dir().unwrap());
     let options = ListingOptions {
-        recursive: recursive,
+        recursive,
         indent_level: 0,
     };
 
