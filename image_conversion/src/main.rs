@@ -25,7 +25,7 @@ pub struct Args {
     width: Option<u32>,
 
     /// New height (optional)
-    #[arg(short, long)]
+    #[arg(short = 'H', long)]
     height: Option<u32>,
 }
 

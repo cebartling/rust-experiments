@@ -5,18 +5,18 @@ A robust command-line utility for converting and resizing images between differe
 ## Features
 
 - **Multiple Format Support**:
-  - JPEG/JPG
-  - PNG
-  - WebP
-  - AVIF
+    - JPEG/JPG
+    - PNG
+    - WebP
+    - AVIF
 - **Image Manipulation**:
-  - Resize images while maintaining aspect ratio
-  - Set custom dimensions (width and/or height)
-  - Configurable output quality
+    - Resize images while maintaining aspect ratio
+    - Set custom dimensions (width and/or height)
+    - Configurable output quality
 - **Flexible Configuration**:
-  - Environment variable support via `.env` files
-  - Command-line argument interface
-  - Comprehensive logging system
+    - Environment variable support via `.env` files
+    - Command-line argument interface
+    - Comprehensive logging system
 
 ## Prerequisites
 
@@ -26,12 +26,14 @@ A robust command-line utility for converting and resizing images between differe
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/image-converter
 cd image-converter
 ```
 
 2. Build the project:
+
 ```bash
 cargo build --release
 ```
@@ -56,29 +58,33 @@ RUST_LOG=info
 
 The utility supports the following command-line arguments:
 
-| Argument | Short | Long | Description | Required |
-|----------|--------|------|-------------|-----------|
-| Input path | `-i` | `--input` | Path to input image | Yes |
-| Output path | `-o` | `--output` | Path for converted image | Yes |
-| Format | `-f` | `--format` | Output format (jpeg, png, webp, avif) | Yes |
-| Width | `-w` | `--width` | New width in pixels | No |
-| Height | `-h` | `--height` | New height in pixels | No |
+| Argument    | Short | Long       | Description                           | Required |
+|-------------|-------|------------|---------------------------------------|----------|
+| Input path  | `-i`  | `--input`  | Path to input image                   | Yes      |
+| Output path | `-o`  | `--output` | Path for converted image              | Yes      |
+| Format      | `-f`  | `--format` | Output format (jpeg, png, webp, avif) | Yes      |
+| Width       | `-w`  | `--width`  | New width in pixels                   | No       |
+| Height      | `-H`  | `--height` | New height in pixels                  | No       |
+| Help        | `-h`  | `--help`   | Help                                  | No       |
 
 ## Usage Examples
 
 - [Command Line Interface Usage Guide](./cli-guide.md)
 
 1. Basic format conversion:
+
 ```bash
 image_converter -i input.jpg -o output.png -f png
 ```
 
 2. Resize image to specific width (maintaining aspect ratio):
+
 ```bash
 image_converter -i input.jpg -o output.webp -f webp -w 800
 ```
 
 3. Resize image to exact dimensions:
+
 ```bash
 image_converter -i input.png -o output.avif -f avif -w 800 -h 600
 ```
@@ -94,6 +100,7 @@ The utility uses the `env_logger` crate for logging. Set the `RUST_LOG` environm
 - `trace`: Very verbose logging
 
 Example log output:
+
 ```
 [2024-11-10T12:00:00Z INFO  image_converter] Loading image from: input.jpg
 [2024-11-10T12:00:00Z INFO  image_converter] Original dimensions: 1920x1080
@@ -104,6 +111,7 @@ Example log output:
 ## Error Handling
 
 The utility provides detailed error messages for common issues:
+
 - Invalid input file path
 - Unsupported image formats
 - Permission issues

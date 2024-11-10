@@ -33,7 +33,7 @@ cargo run -- -i samples/photo.jpg -o converted/photo_resized.webp -f webp -w 800
 
 ### 3. Resize to Exact Dimensions
 ```bash
-cargo run -- -i samples/photo.png -o converted/thumbnail.jpg -f jpeg -w 300 -h 200
+cargo run -- -i samples/photo.png -o converted/thumbnail.jpg -f jpeg -w 300 -H 200
 ```
 
 ### 4. Convert to AVIF with Debug Logging
@@ -50,7 +50,7 @@ IMAGE_QUALITY=95 cargo run -- -i samples/photo.jpg -o converted/high_quality.jpg
 
 The basic command structure is:
 ```bash
-cargo run -- [OPTIONS] --input <INPUT> --output <OUTPUT> --format <FORMAT>
+cargo run -- [OPTIONS] --input <INPUT> --output <OUTPUT> --format <FORMAT> --width <WIDTH> --height <HEIGHT>
 ```
 
 ## Development and Debugging
