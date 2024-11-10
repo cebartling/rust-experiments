@@ -66,6 +66,8 @@ The utility supports the following command-line arguments:
 
 ## Usage Examples
 
+- [Command Line Interface Usage Guide](./cli-guide.md)
+
 1. Basic format conversion:
 ```bash
 image_converter -i input.jpg -o output.png -f png
