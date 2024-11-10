@@ -116,6 +116,10 @@ The utility provides detailed error messages for common issues:
 - Large images may require significant memory
 - AVIF encoding can be CPU-intensive
 
+## Technical Details
+
+- [UML sequence diagrams](./sequence-diagram-doc.md)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
