@@ -5,7 +5,7 @@ A simple REST API built with Rust, using Axum web framework and PostgreSQL datab
 ## Prerequisites
 
 - Rust (latest stable version)
-- PostgreSQL (running instance)
+- Docker and Docker Compose
 - Cargo (Rust's package manager)
 
 ## Setup
@@ -16,12 +16,9 @@ git clone <repository-url>
 cd rust-axum-api
 ```
 
-2. Set up the database:
-   - Ensure PostgreSQL is running
-   - The default connection string is: `postgres://postgres:postgres@localhost:5432/postgres`
-   - Alternatively, set your own database URL:
+2. Start the database:
 ```bash
-export DATABASE_URL=postgres://username:password@localhost:5432/database_name
+docker-compose up -d
 ```
 
 3. Build the project:
@@ -35,6 +32,43 @@ cargo run
 ```
 
 The server will start on `http://localhost:3000`
+
+## Database Configuration
+
+The application uses PostgreSQL with the following default configuration:
+- Host: `localhost`
+- Port: `5432`
+- User: `postgres`
+- Password: `postgres`
+- Database: `postgres`
+
+You can override these settings by setting the `DATABASE_URL` environment variable:
+```bash
+export DATABASE_URL=postgres://username:password@localhost:5432/database_name
+```
+
+## Docker Commands
+
+Start the database:
+```bash
+docker-compose up -d
+```
+
+Stop the database:
+```bash
+docker-compose down
+```
+
+View database logs:
+```bash
+docker-compose logs postgres
+```
+
+Reset database (removes all data):
+```bash
+docker-compose down -v
+docker-compose up -d
+```
 
 ## API Endpoints
 
@@ -69,6 +103,7 @@ or
 ```
 .
 ├── Cargo.toml          # Rust dependencies and project metadata
+├── docker-compose.yml  # Docker configuration
 └── src
     └── main.rs         # Application entry point and route handlers
 ```
@@ -109,3 +144,4 @@ curl http://localhost:3000/health
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
