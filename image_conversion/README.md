@@ -86,7 +86,7 @@ image_converter -i input.jpg -o output.webp -f webp -w 800
 3. Resize image to exact dimensions:
 
 ```bash
-image_converter -i input.png -o output.avif -f avif -w 800 -h 600
+image_converter -i input.png -o output.avif -f avif -w 800 -H 600
 ```
 
 ## Logging
@@ -102,10 +102,12 @@ The utility uses the `env_logger` crate for logging. Set the `RUST_LOG` environm
 Example log output:
 
 ```
-[2024-11-10T12:00:00Z INFO  image_converter] Loading image from: input.jpg
-[2024-11-10T12:00:00Z INFO  image_converter] Original dimensions: 1920x1080
-[2024-11-10T12:00:00Z INFO  image_converter] New dimensions: 800x450
-[2024-11-10T12:00:00Z INFO  image_converter] Successfully saved converted image to: output.webp
+[2024-11-11T00:13:31Z INFO  image_conversion] Loading image from: ./images/eddie-alien.jpg
+[2024-11-11T00:13:31Z INFO  image_conversion] Original dimensions: 1024x1024
+[2024-11-11T00:13:31Z INFO  image_conversion] New dimensions: 1024x1024
+[2024-11-11T00:13:31Z INFO  image_conversion] Converting to WebP format with quality 90
+[2024-11-11T00:13:32Z INFO  image_conversion] Successfully saved converted image to: ./images/eddie-alien.webp
+[2024-11-11T00:13:32Z INFO  image_conversion] Image conversion completed successfully
 ```
 
 ## Error Handling
