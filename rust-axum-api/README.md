@@ -72,31 +72,8 @@ docker-compose up -d
 
 ## API Endpoints
 
-### GET /
-Returns a simple hello world message.
-
-**Response:**
-```json
-{
-    "message": "Hello, World!"
-}
-```
-
-### GET /health
-Checks the health of the service and database connection.
-
-**Response:**
-```json
-{
-    "message": "Service is healthy"
-}
-```
-or
-```json
-{
-    "message": "Database connection failed"
-}
-```
+- [OpenAPI/Swagger documentation How-To](./documentation/open-api.md)
+- [Live OpenAPI/Swagger docs](http://localhost:3000/swagger-ui) 
 
 ## Project Structure
 
