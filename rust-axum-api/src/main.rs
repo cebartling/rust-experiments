@@ -9,11 +9,70 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::net::SocketAddr;
+use utoipa::{
+    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    Modify,
+    OpenApi,
+    ToSchema,
+};
+use utoipa_swagger_ui::SwaggerUi;
 
-#[derive(Serialize, Debug, Deserialize, PartialEq)]
+#[derive(Serialize, Debug, Deserialize, PartialEq, ToSchema)]
 struct Message {
     message: String,
 }
+
+// Example error response
+#[derive(ToSchema)]
+struct ErrorResponse {
+    #[schema(example = "Invalid input provided")]
+    message: String,
+    #[schema(example = 400)]
+    code: i32,
+}
+
+// Security modifier to add API key authentication
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        let components = openapi.components.get_or_insert_with(Default::default);
+        components.add_security_scheme(
+            "api_key",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("x-api-key"))),
+        );
+    }
+}
+
+// Generate OpenAPI documentation
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        health_check,
+    ),
+    components(
+        schemas(ErrorResponse)
+    ),
+    modifiers(&SecurityAddon),
+    tags(
+        (name = "health", description = "Health check endpoints")
+    ),
+    info(
+        title = "My API",
+        version = "1.0.0",
+        description = "API documentation for my Rust/Axum service",
+        license(
+            name = "MIT",
+            url = "https://opensource.org/licenses/MIT"
+        ),
+        contact(
+            name = "API Support",
+            email = "support@example.com"
+        )
+    )
+)]
+struct ApiDoc;
+
 
 async fn hello_handler() -> Json<Message> {
     Json(Message {
@@ -21,6 +80,19 @@ async fn hello_handler() -> Json<Message> {
     })
 }
 
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Health check OK", body = Message),
+        (status = 404, description = "Health check not found", body = ErrorResponse),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    security(
+        ("api_key" = [])
+    ),
+    tag = "health"
+)]
 async fn health_check(State(pool): State<PgPool>) -> impl IntoResponse {
     match sqlx::query("SELECT 1").execute(&pool).await {
         Ok(_) => Json(Message {
@@ -34,6 +106,8 @@ async fn health_check(State(pool): State<PgPool>) -> impl IntoResponse {
 
 pub fn create_router(pool: PgPool) -> Router {
     Router::new()
+        .merge(SwaggerUi::new("/swagger-ui")
+            .url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/", get(hello_handler))
         .route("/health", get(health_check))
         .with_state(pool)
