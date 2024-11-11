@@ -69,7 +69,7 @@ The utility supports the following command-line arguments:
 
 ## Usage Examples
 
-- [Command Line Interface Usage Guide](./cli-guide.md)
+- [Command Line Interface Usage Guide](documentation/cli-guide.md)
 
 1. Basic format conversion:
 
@@ -128,7 +128,7 @@ The utility provides detailed error messages for common issues:
 
 ## Technical Details
 
-- [UML sequence diagrams](./sequence-diagram-doc.md)
+- [UML sequence diagrams](documentation/sequence-diagram-doc.md)
 
 ## Contributing
 
