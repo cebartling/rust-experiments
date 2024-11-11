@@ -1,3 +1,8 @@
+use axum::{
+    body::Body,
+    http::Request,
+    middleware::{self, Next},
+};
 // src/main.rs
 use axum::{
     extract::State,
@@ -9,6 +14,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::net::SocketAddr;
+use std::time::Instant;
+use tower_http::trace::TraceLayer;
+use tracing::{debug, error, info, Level, };
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::{
     openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
     Modify,
@@ -16,6 +25,28 @@ use utoipa::{
     ToSchema,
 };
 use utoipa_swagger_ui::SwaggerUi;
+use uuid::Uuid;
+
+// Add request ID to trace spans
+#[derive(Clone, Debug)]
+struct RequestId(String);
+
+async fn trace_request_id(request: Request<Body>, next: Next) -> impl IntoResponse {
+    let request_id = RequestId(Uuid::new_v4().to_string());
+
+    // Store request_id in request extensions
+    let mut request = request;
+    request.extensions_mut().insert(request_id.clone());
+
+    let span = tracing::span!(
+        Level::INFO,
+        "request",
+        request_id = %request_id.0
+    );
+
+    let _guard = span.enter();
+    next.run(request).await
+}
 
 #[derive(Serialize, Debug, Deserialize, PartialEq, ToSchema)]
 struct Message {
@@ -24,6 +55,7 @@ struct Message {
 
 // Example error response
 #[derive(ToSchema)]
+#[allow(dead_code)]
 struct ErrorResponse {
     #[schema(example = "Invalid input provided")]
     message: String,
@@ -75,6 +107,7 @@ struct ApiDoc;
 
 
 async fn hello_handler() -> Json<Message> {
+    info!("Handling hello request");
     Json(Message {
         message: String::from("Hello, World!"),
     })
@@ -94,13 +127,25 @@ async fn hello_handler() -> Json<Message> {
     tag = "health"
 )]
 async fn health_check(State(pool): State<PgPool>) -> impl IntoResponse {
-    match sqlx::query("SELECT 1").execute(&pool).await {
-        Ok(_) => Json(Message {
-            message: String::from("Service is healthy"),
-        }),
-        Err(_) => Json(Message {
-            message: String::from("Database connection failed"),
-        }),
+    debug!("Starting health check");
+    let start = Instant::now();
+
+    let result = sqlx::query("SELECT 1").execute(&pool).await;
+    let duration = start.elapsed();
+
+    match result {
+        Ok(_) => {
+            info!(duration_ms = duration.as_millis(), "Database health check successful");
+            Json(Message {
+                message: String::from("Service is healthy"),
+            })
+        }
+        Err(e) => {
+            error!(error = %e, duration_ms = duration.as_millis(), "Database health check failed");
+            Json(Message {
+                message: String::from("Database connection failed"),
+            })
+        }
     }
 }
 
@@ -110,37 +155,71 @@ pub fn create_router(pool: PgPool) -> Router {
             .url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/", get(hello_handler))
         .route("/health", get(health_check))
+        .layer(TraceLayer::new_for_http())
+        .layer(middleware::from_fn(trace_request_id))
         .with_state(pool)
 }
 
+fn setup_logging() {
+    // Get log level from environment variable or default to INFO
+    let log_level = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| "info".to_string());
+
+    // Initialize tracing subscriber with formatting and filtering
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| format!("rust_axum_api={},tower_http=debug", log_level).into())
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_target(true)
+                .with_file(true)
+                .with_line_number(true)
+        )
+        .init();
+}
+
+
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
+    setup_logging();
+
+    info!("Starting application");
 
     // Database connection
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
 
-    let pool = PgPool::connect(&database_url)
-        .await
-        .expect("Failed to connect to Postgres");
+    info!("Connecting to database");
+    let pool = match PgPool::connect(&database_url).await {
+        Ok(pool) => {
+            info!("Successfully connected to database");
+            pool
+        },
+        Err(e) => {
+            error!("Failed to connect to database: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Build our application with routes
     let app = create_router(pool);
 
     // Run it
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::info!("listening on {}", addr);
+    info!("Listening on {}", addr);
 
     axum::serve(
         tokio::net::TcpListener::bind(&addr)
             .await
-            .unwrap(),
-        app,
+            .expect("Failed to bind to address"),
+        app
     )
         .await
-        .unwrap();
+        .expect("Failed to start server");
 }
 
 #[cfg(test)]
@@ -153,38 +232,36 @@ mod tests {
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
-    #[tokio::test]
-    async fn test_hello_endpoint() {
-        // Create test database pool
+    async fn setup_test_app() -> Router {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
+
         let pool = PgPool::connect(&database_url)
             .await
             .expect("Failed to connect to Postgres");
 
-        // Build our application with routes
-        let app = create_router(pool);
+        create_router(pool)
+    }
 
-        // Create request
+    #[tokio::test]
+    async fn test_hello_endpoint() {
+        let app = setup_test_app().await;
+
         let request = Request::builder()
             .uri("/")
             .body(Body::empty())
             .unwrap();
 
-        // Get response
         let response = app
             .oneshot(request)
             .await
             .unwrap();
 
-        // Assert status code
         assert_eq!(response.status(), StatusCode::OK);
 
-        // Get response body
         let body = response.into_body().collect().await.unwrap().to_bytes();
-
-        // Parse response body as JSON and verify the content
         let body: Message = serde_json::from_slice(&body).unwrap();
+
         assert_eq!(
             body,
             Message {
@@ -195,36 +272,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_check_endpoint() {
-        // Create test database pool
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
-        let pool = PgPool::connect(&database_url)
-            .await
-            .expect("Failed to connect to Postgres");
+        let app = setup_test_app().await;
 
-        // Build our application with routes
-        let app = create_router(pool);
-
-        // Create request
         let request = Request::builder()
             .uri("/health")
             .body(Body::empty())
             .unwrap();
 
-        // Get response
         let response = app
             .oneshot(request)
             .await
             .unwrap();
 
-        // Assert status code
         assert_eq!(response.status(), StatusCode::OK);
 
-        // Get response body
         let body = response.into_body().collect().await.unwrap().to_bytes();
-
-        // Parse response body as JSON and verify the content
         let body: Message = serde_json::from_slice(&body).unwrap();
+
         assert_eq!(
             body,
             Message {
@@ -235,29 +299,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_not_found() {
-        // Create test database pool
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
-        let pool = PgPool::connect(&database_url)
-            .await
-            .expect("Failed to connect to Postgres");
+        let app = setup_test_app().await;
 
-        // Build our application with routes
-        let app = create_router(pool);
-
-        // Create request to non-existent endpoint
         let request = Request::builder()
             .uri("/non-existent")
             .body(Body::empty())
             .unwrap();
 
-        // Get response
         let response = app
             .oneshot(request)
             .await
             .unwrap();
 
-        // Assert status code
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }
