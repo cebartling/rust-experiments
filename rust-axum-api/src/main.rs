@@ -12,11 +12,13 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use std::env;
 use std::net::SocketAddr;
 use std::time::Instant;
 use tower_http::trace::TraceLayer;
-use tracing::{debug, error, info, Level, };
+use tracing::{debug, error, info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::{
     openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
@@ -184,26 +186,36 @@ fn setup_logging() {
 
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load .env file if it exists
+    dotenv::dotenv().ok();
     setup_logging();
 
     info!("Starting application");
 
     // Database connection
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
 
     info!("Connecting to database");
-    let pool = match PgPool::connect(&database_url).await {
+    let pool = match PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await {
         Ok(pool) => {
             info!("Successfully connected to database");
             pool
-        },
+        }
         Err(e) => {
             error!("Failed to connect to database: {}", e);
             std::process::exit(1);
         }
     };
+
+    // Run migrations
+    rust_axum_api::run_migrations(&pool).await?;
+
+    println!("Migrations completed successfully!");
 
     // Build our application with routes
     let app = create_router(pool);
@@ -216,10 +228,12 @@ async fn main() {
         tokio::net::TcpListener::bind(&addr)
             .await
             .expect("Failed to bind to address"),
-        app
+        app,
     )
         .await
         .expect("Failed to start server");
+    
+    Ok(())
 }
 
 #[cfg(test)]
