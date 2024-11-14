@@ -30,6 +30,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
 pub mod models;
+pub mod error;
 
 // Add request ID to trace spans
 #[derive(Clone, Debug)]
