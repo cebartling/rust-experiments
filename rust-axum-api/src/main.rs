@@ -29,6 +29,8 @@ use utoipa::{
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
+pub mod models;
+
 // Add request ID to trace spans
 #[derive(Clone, Debug)]
 struct RequestId(String);
