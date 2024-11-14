@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
     pub id: Uuid,
