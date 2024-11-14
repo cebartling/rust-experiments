@@ -3,6 +3,8 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use axum::http::{header, HeaderMap, HeaderValue};
+use axum::response::IntoResponse;
 use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -25,7 +27,7 @@ fn default_limit() -> i32 {
 pub async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateUserRequest>,
-) -> Result<Json<User>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     // Check if email already exists
     if let Some(_) = User::find_by_email(&pool, &payload.email).await? {
         return Err(AppError::new(
@@ -35,7 +37,14 @@ pub async fn create_user(
     }
 
     let user = User::create(&pool, payload).await?;
-    Ok(Json(user))
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::LOCATION,
+        HeaderValue::from_str(&format!("/users/{}", user.id))
+            .expect("Failed to create location header")
+    );
+
+    Ok((StatusCode::CREATED, headers, Json(user)))
 }
 
 pub async fn get_user(
@@ -53,12 +62,12 @@ pub async fn update_user(
     State(pool): State<PgPool>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateUserRequest>,
-) -> Result<Json<User>, AppError> {
-    let user = User::update(&pool, id, payload)
+) -> Result<StatusCode, AppError> {
+    let _user = User::update(&pool, id, payload)
         .await?
         .ok_or_else(|| AppError::new(StatusCode::NOT_FOUND, "User not found".to_string()))?;
 
-    Ok(Json(user))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn delete_user(

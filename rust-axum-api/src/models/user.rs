@@ -14,14 +14,14 @@ pub struct User {
     pub password_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CreateUserRequest {
     pub email: String,
     pub password: String,
     pub full_name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateUserRequest {
     pub full_name: Option<String>,
     pub email: Option<String>,

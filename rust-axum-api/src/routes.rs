@@ -25,7 +25,6 @@ use utoipa::{
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
-
 // Add request ID to trace spans
 #[derive(Clone, Debug)]
 struct RequestId(String);
@@ -75,7 +74,6 @@ async fn trace_request_id(request: Request<Body>, next: Next) -> impl IntoRespon
     let _guard = span.enter();
     next.run(request).await
 }
-
 
 #[utoipa::path(
     get,
@@ -157,4 +155,171 @@ pub fn create_router(pool: PgPool) -> Router {
         .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn(trace_request_id))
         .with_state(pool)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::user::{CreateUserRequest, User};
+    use axum::{body::Body, http::{Request, StatusCode}, Router};
+    use axum::http::header;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+
+    #[tokio::test]
+    async fn create_user_success() {
+        let app = setup_test_app().await;
+        let uuid = Uuid::new_v4();
+        let email = format!("test+{uuid}@example.com");
+        let create_user_request = CreateUserRequest {
+            email: email.clone(),
+            password: "password123".to_string(),
+            full_name: "Test User".to_string(),
+        };
+
+        let request = Request::builder()
+            .uri("/users")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_user_request).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let location = response
+            .headers()
+            .get(header::LOCATION)
+            .expect("Location header should be present");
+
+        assert!(location.to_str().unwrap().starts_with("/users/"));
+    }
+
+    #[tokio::test]
+    async fn create_user_missing_fields() {
+        let app = setup_test_app().await;
+        let uuid = Uuid::new_v4();
+        let email = format!("test+{uuid}@example.com");
+        let body = format!(r#"{{"email": "{}"}}"#, email.clone());
+
+        let request = Request::builder()
+            .uri("/users")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(body.clone()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn update_user_success() {
+        let app = setup_test_app().await;
+
+        let request = Request::builder()
+            .uri("/users/1")
+            .method("PUT")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{"email": "updated@example.com", "full_name": "Updated User"}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let user: User = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(user.email, "updated@example.com");
+        assert_eq!(user.full_name, "Updated User");
+    }
+
+    #[tokio::test]
+    async fn update_user_not_found() {
+        let app = setup_test_app().await;
+
+        let request = Request::builder()
+            .uri("/users/non-existent")
+            .method("PUT")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{"email": "updated@example.com", "full_name": "Updated User"}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn delete_user_success() {
+        let app = setup_test_app().await;
+
+        let request = Request::builder()
+            .uri("/users/1")
+            .method("DELETE")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    async fn delete_user_not_found() {
+        let app = setup_test_app().await;
+
+        let request = Request::builder()
+            .uri("/users/non-existent")
+            .method("DELETE")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_health_check_endpoint() {
+        let app = setup_test_app().await;
+
+        let request = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app
+            .oneshot(request)
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Message = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            body,
+            Message {
+                message: "Service is healthy".to_string()
+            }
+        );
+    }
+
+    async fn setup_test_app() -> Router {
+        let database_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/postgres".to_string());
+
+        let pool = PgPool::connect(&database_url)
+            .await
+            .expect("Failed to connect to Postgres");
+
+        create_router(pool)
+    }
 }
