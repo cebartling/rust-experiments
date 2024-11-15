@@ -6,43 +6,28 @@ use crate::handlers::user_handlers::{
     update_user,
 };
 use axum::body::Body;
-use axum::extract::State;
 use axum::http::Request;
 use axum::middleware::Next;
 use axum::response::IntoResponse;
-use axum::{middleware, routing::{delete, get, post, put}, Json, Router};
-use serde::{Deserialize, Serialize};
+use axum::{middleware, routing::{delete, get, post, put},  Router};
 use sqlx::PgPool;
-use std::time::Instant;
 use tower_http::trace::TraceLayer;
-use tracing::{debug, error, info, Level};
+use tracing::Level;
 use utoipa::{
     openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
     Modify,
     OpenApi,
-    ToSchema,
 };
 use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
+
+use crate::handlers::health_handlers::health_check;
+use crate::models::error_response::ErrorResponse;
 
 // Add request ID to trace spans
 #[derive(Clone, Debug)]
 struct RequestId(String);
 
-#[derive(Serialize, Debug, Deserialize, PartialEq, ToSchema)]
-struct Message {
-    message: String,
-}
-
-// Example error response
-#[derive(ToSchema)]
-#[allow(dead_code)]
-struct ErrorResponse {
-    #[schema(example = "Invalid input provided")]
-    message: String,
-    #[schema(example = 400)]
-    code: i32,
-}
 
 // Security modifier to add API key authentication
 struct SecurityAddon;
@@ -75,48 +60,47 @@ async fn trace_request_id(request: Request<Body>, next: Next) -> impl IntoRespon
     next.run(request).await
 }
 
-#[utoipa::path(
-    get,
-    path = "/health",
-    responses(
-        (status = 200, description = "Health check OK", body = Message),
-        (status = 404, description = "Health check not found", body = ErrorResponse),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    security(
-        ("api_key" = [])
-    ),
-    tag = "health"
-)]
-async fn health_check(State(pool): State<PgPool>) -> impl IntoResponse {
-    debug!("Starting health check");
-    let start = Instant::now();
-
-    let result = sqlx::query("SELECT 1").execute(&pool).await;
-    let duration = start.elapsed();
-
-    match result {
-        Ok(_) => {
-            info!(duration_ms = duration.as_millis(), "Database health check successful");
-            Json(Message {
-                message: String::from("Service is healthy"),
-            })
-        }
-        Err(e) => {
-            error!(error = %e, duration_ms = duration.as_millis(), "Database health check failed");
-            Json(Message {
-                message: String::from("Database connection failed"),
-            })
-        }
-    }
-}
+// #[utoipa::path(
+//     get,
+//     path = "/health",
+//     responses(
+//         (status = 200, description = "Health check OK", body = Message),
+//         (status = 404, description = "Health check not found", body = ErrorResponse),
+//         (status = 500, description = "Internal server error", body = ErrorResponse)
+//     ),
+//     security(
+//         ("api_key" = [])
+//     ),
+//     tag = "health"
+// )]
+// async fn health_check(State(pool): State<PgPool>) -> impl IntoResponse {
+//     debug!("Starting health check");
+//     let start = Instant::now();
+// 
+//     let result = sqlx::query("SELECT 1").execute(&pool).await;
+//     let duration = start.elapsed();
+// 
+//     match result {
+//         Ok(_) => {
+//             info!(duration_ms = duration.as_millis(), "Database health check successful");
+//             Json(Message {
+//                 message: String::from("Service is healthy"),
+//             })
+//         }
+//         Err(e) => {
+//             error!(error = %e, duration_ms = duration.as_millis(), "Database health check failed");
+//             Json(Message {
+//                 message: String::from("Database connection failed"),
+//             })
+//         }
+//     }
+// }
 
 
 // Generate OpenAPI documentation
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        health_check,
     ),
     components(
         schemas(ErrorResponse)
@@ -162,8 +146,8 @@ pub fn create_router(pool: PgPool) -> Router {
 mod tests {
     use super::*;
     use crate::models::user::{CreateUserRequest, User};
-    use axum::{body::Body, http::{Request, StatusCode}, Router};
     use axum::http::header;
+    use axum::{body::Body, http::{Request, StatusCode}, Router};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
