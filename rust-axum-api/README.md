@@ -7,6 +7,7 @@ A simple REST API built with Rust, using Axum web framework and PostgreSQL datab
 - Rust (latest stable version)
 - Docker and Docker Compose
 - Cargo (Rust's package manager)
+- SQLx CLI (for database migrations) - `cargo install sqlx-cli`
 
 ## Setup
 
@@ -19,6 +20,11 @@ cd rust-axum-api
 2. Start the database:
 ```bash
 docker-compose up -d
+```
+
+3. Migrate the database:
+```bash
+sqlx migrate run
 ```
 
 3. Build the project:
