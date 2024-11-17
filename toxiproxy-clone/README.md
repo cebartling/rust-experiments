@@ -6,13 +6,20 @@ simulating various network failures and conditions.
 
 ## Features
 
+- **Architecture**:
+  - Thread-based concurrency for handling multiple connections
+  - Arc-based sharing of toxic configurations
+  - Error handling for network operations
 - **TCP Proxying**: Forward TCP traffic between client and upstream services
+  - TCP proxy that forwards traffic between a client and upstream server
+  - Bidirectional streaming with separate threads for upstream and downstream
+  - Buffer-based data transfer with configurable toxic effects
 - **Dynamic Configuration**: REST API for runtime toxic configuration
 - **Metrics Collection**: Prometheus-compatible metrics and detailed proxy statistics
-- **Multiple Toxic Types**:
-    - Latency: Add delay to connections
-    - Corrupt: Randomly corrupt TCP packets
-    - SlowClose: Delay connection termination
+- **Toxic System**: `Toxic` trait that defines the interface for all toxic behaviors
+  - `LatencyToxic`: Adds artificial delay to connections
+  - `SlowCloseToxic`: Delays connection closing
+  - `CorruptToxic`: Randomly corrupts data with a given probability
 
 ## Installation
 
