@@ -1,8 +1,9 @@
 use crate::toxic::Toxic;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{io, thread};
+use std::collections::HashMap;
 
 pub struct Proxy {
     pub toxics: Vec<Arc<dyn Toxic>>,
@@ -76,9 +77,6 @@ impl Proxy {
         let listener = TcpListener::bind(listen_addr)?;
         let toxics = Arc::new(self.toxics.clone());
 
-        println!("Proxy listening on {}", listen_addr);
-        println!("Forwarding to {}", upstream_addr);
-
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
@@ -97,3 +95,6 @@ impl Proxy {
         Ok(())
     }
 }
+
+pub type ProxyState = Arc<Mutex<HashMap<String, Vec<Arc<dyn Toxic>>>>>;
+
