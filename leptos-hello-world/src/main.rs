@@ -1,8 +1,8 @@
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 fn App() -> impl IntoView {
-    let (name, set_name) = create_signal(String::from("World"));
+    let (name, set_name) = signal(String::from("World"));
 
     view! {
         <div class="container mx-auto p-4 max-w-md">
