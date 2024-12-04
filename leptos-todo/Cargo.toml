@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 leptos = "0.5"
 serde = { version = "1.0", features = ["derive"] }
+
+[build-dependencies]
+grass = "0.13"
