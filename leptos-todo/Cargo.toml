@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = "0.5"
+leptos = { version = "0.5", features = ["csr"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [build-dependencies]
