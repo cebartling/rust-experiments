@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,11 +10,11 @@ struct TodoItem {
 
 #[component]
 fn TodoApp() -> impl IntoView {
-    let (todos, set_todos) = create_signal(vec![]);
-    let (new_todo_text, set_new_todo_text) = create_signal(String::new());
-    let next_id = create_rw_signal(0);
+    let (todos, set_todos) = signal(vec![]);
+    let (new_todo_text, set_new_todo_text) = signal(String::new());
+    let (next_id, set_next_id) = signal(0);
 
-    let add_todo = move |ev: ev::SubmitEvent| {
+    let add_todo = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let text = new_todo_text.get().trim().to_string();
         if !text.is_empty() {
@@ -25,7 +25,7 @@ fn TodoApp() -> impl IntoView {
                     completed: false,
                 });
             });
-            next_id.update(|id| { let _ = *id + 1; });
+            set_next_id.update(|id| { let _ = *id + 1; });
             set_new_todo_text.set(String::new());
         }
     };
