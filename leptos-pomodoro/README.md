@@ -1,7 +1,18 @@
 # Pomodoro Application in Rust and Leptos
 
 A simple pomodoro web application built with Leptos and Rust, demonstrating basic state management and component
-structure.
+structure. The original idea came from a [ReactPractice](https://reactpractice.dev/exercise/build-a-pomodoro-app/)
+exercise.
+
+## Requirements
+
+- [ ] The user can start a 25-minute pomodoro, and the timer will go off once 25 minutes has elapsed.
+- [ ] A 5-minute break timer is started after the 25-minute pomodoro completes.
+- [ ] After four pomodoros, there is a longer, 15-30 minute break.
+- [ ] The user can start a new pomodoro at any time.
+- [ ] The user can pause the timer.
+- [ ] The user can stop the timer.
+- [ ] The user can reset the timer to 25 minutes.
 
 ## Prerequisites
 
