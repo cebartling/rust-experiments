@@ -5,6 +5,7 @@ use std::time::Duration;
 pub fn PomodoroTimer() -> impl IntoView {
     let (time_remaining, set_time_remaining) = signal(1500); // 25 minutes in seconds
     let (is_active, set_is_active) = signal(false);
+    let (is_paused, set_is_paused) = signal(false);
 
     // Format remaining time as MM:SS
     let formatted_time = move || {
@@ -17,6 +18,7 @@ pub fn PomodoroTimer() -> impl IntoView {
     let start_timer = move |_| {
         if !is_active.get() {
             set_is_active.set(true);
+            set_is_paused.set(false);
 
             let handle = set_interval_with_handle(
                 move || {
@@ -24,6 +26,7 @@ pub fn PomodoroTimer() -> impl IntoView {
                         set_time_remaining.update(|t| *t -= 1);
                     } else {
                         set_is_active.set(false);
+                        set_is_paused.set(false);
                         // Could add sound notification here
                     }
                 },
@@ -43,9 +46,23 @@ pub fn PomodoroTimer() -> impl IntoView {
         }
     };
 
+    let pause_timer = move |_| {
+        set_is_paused.set(true);
+    };
+
     let reset_timer = move |_| {
         set_is_active.set(false);
+        set_is_paused.set(false);
         set_time_remaining.set(1500);
+    };
+
+    // Dynamic button text based on timer state
+    let start_button_text = move || {
+        if is_paused.get() {
+            "Resume"
+        } else {
+            "Start"
+        }
     };
 
     view! {
@@ -61,9 +78,17 @@ pub fn PomodoroTimer() -> impl IntoView {
                     <button
                         class="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
                         on:click=start_timer
-                        disabled=move || is_active.get()
+                        disabled=move || is_active.get() && !is_paused.get()
                     >
-                        "Start"
+                        {start_button_text}
+                    </button>
+
+                    <button
+                        class="px-6 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+                        on:click=pause_timer
+                        disabled=move || !is_active.get() || is_paused.get()
+                    >
+                        "Pause"
                     </button>
 
                     <button
