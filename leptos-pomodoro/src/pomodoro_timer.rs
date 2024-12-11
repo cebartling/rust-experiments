@@ -86,15 +86,13 @@ pub fn PomodoroTimer() -> impl IntoView {
                     <div class="flex flex-wrap justify-center gap-2">
                         {move || {
                             (0..completed_pomodoros.get())
-                                .map(|_| view! { <TomatoIcon/> })
+                                .map(|_| view! { <TomatoIcon /> })
                                 .collect::<Vec<_>>()
                         }}
                     </div>
                 </div>
 
-                <div class="text-6xl font-mono mb-8">
-                    {formatted_time}
-                </div>
+                <div class="text-6xl font-mono mb-8">{formatted_time}</div>
 
                 <div class="space-x-4">
                     <button
