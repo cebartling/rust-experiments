@@ -1,11 +1,17 @@
+use crate::tomato_icon::TomatoIcon;
 use leptos::prelude::*;
+use log::info;
 use std::time::Duration;
+
+// const POMODORO_TIME: i32 = 25 * 60; // 25 minutes in units of seconds
+const POMODORO_TIME: i32 = 1 * 5;
 
 #[component]
 pub fn PomodoroTimer() -> impl IntoView {
-    let (time_remaining, set_time_remaining) = signal(1500); // 25 minutes in seconds
+    let (time_remaining, set_time_remaining) = signal(POMODORO_TIME);
     let (is_active, set_is_active) = signal(false);
     let (is_paused, set_is_paused) = signal(false);
+    let (completed_pomodoros, set_completed_pomodoros) = signal(0);
 
     // Format remaining time as MM:SS
     let formatted_time = move || {
@@ -17,16 +23,20 @@ pub fn PomodoroTimer() -> impl IntoView {
     // Timer logic using set_interval_with_handle
     let start_timer = move |_| {
         if !is_active.get() {
+            set_time_remaining.set(POMODORO_TIME);
             set_is_active.set(true);
             set_is_paused.set(false);
 
             let handle = set_interval_with_handle(
                 move || {
+                    info!("Counting down: {}", time_remaining.get());
                     if time_remaining.get() > 0 {
                         set_time_remaining.update(|t| *t -= 1);
                     } else {
+                        info!("Pomodoro completed!");
                         set_is_active.set(false);
                         set_is_paused.set(false);
+                        set_completed_pomodoros.update(|n| *n += 1);
                         // Could add sound notification here
                     }
                 },
@@ -34,11 +44,12 @@ pub fn PomodoroTimer() -> impl IntoView {
             );
 
             if let Ok(interval_handle) = handle {
+                info!("Handling timer handle");
                 // Store handle to clear interval when needed
                 let clear_handle = StoredValue::new(interval_handle);
 
                 Effect::new(move |_| {
-                    if !is_active.get() || time_remaining.get() == 0 {
+                    if !is_active.get() || time_remaining.get() == -1 {
                         clear_handle.get_value().clear();
                     }
                 });
@@ -53,7 +64,7 @@ pub fn PomodoroTimer() -> impl IntoView {
     let reset_timer = move |_| {
         set_is_active.set(false);
         set_is_paused.set(false);
-        set_time_remaining.set(1500);
+        set_time_remaining.set(POMODORO_TIME);
     };
 
     // Dynamic button text based on timer state
@@ -69,6 +80,17 @@ pub fn PomodoroTimer() -> impl IntoView {
         <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
             <div class="bg-white p-8 rounded-lg shadow-lg text-center">
                 <h1 class="text-4xl font-bold mb-8">"Pomodoro Timer"</h1>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold mb-2">"Completed Pomodoros"</h2>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        {move || {
+                            (0..completed_pomodoros.get())
+                                .map(|_| view! { <TomatoIcon/> })
+                                .collect::<Vec<_>>()
+                        }}
+                    </div>
+                </div>
 
                 <div class="text-6xl font-mono mb-8">
                     {formatted_time}
