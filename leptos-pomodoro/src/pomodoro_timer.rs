@@ -1,4 +1,4 @@
-use crate::tomato_icon::TomatoIcon;
+use crate::components::completed_pomodoros::CompletedPomodoros;
 use leptos::prelude::*;
 use log::info;
 use std::time::Duration;
@@ -81,16 +81,7 @@ pub fn PomodoroTimer() -> impl IntoView {
             <div class="bg-white p-8 rounded-lg shadow-lg text-center">
                 <h1 class="text-4xl font-bold mb-8">"Pomodoro Timer"</h1>
 
-                <div class="mb-4">
-                    <h2 class="text-xl font-semibold mb-2">"Completed Pomodoros"</h2>
-                    <div class="flex flex-wrap justify-center gap-2">
-                        {move || {
-                            (0..completed_pomodoros.get())
-                                .map(|_| view! { <TomatoIcon /> })
-                                .collect::<Vec<_>>()
-                        }}
-                    </div>
-                </div>
+                <CompletedPomodoros count=completed_pomodoros />
 
                 <div class="text-6xl font-mono mb-8">{formatted_time}</div>
 

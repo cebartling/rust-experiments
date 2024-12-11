@@ -1,5 +1,5 @@
+mod components;
 mod pomodoro_timer;
-mod tomato_icon;
 
 use crate::pomodoro_timer::PomodoroTimer;
 use leptos::prelude::*;
