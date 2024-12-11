@@ -1,7 +1,6 @@
 mod components;
-mod pomodoro_timer;
 
-use crate::pomodoro_timer::PomodoroTimer;
+use components::pomodoro_timer::PomodoroTimer;
 use leptos::prelude::*;
 
 fn main() {
