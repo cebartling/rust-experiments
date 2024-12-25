@@ -1,4 +1,5 @@
 use crate::components::completed_pomodoros::CompletedPomodoros;
+use crate::components::no_completed_pomodoros::NoCompletedPomodoros;
 use leptos::prelude::*;
 use log::info;
 use std::time::Duration;
@@ -81,7 +82,12 @@ pub fn PomodoroTimer() -> impl IntoView {
             <div class="bg-white p-8 rounded-lg shadow-lg text-center">
                 <h1 class="text-4xl font-bold mb-8">"Pomodoro Timer"</h1>
 
-                <CompletedPomodoros count=completed_pomodoros />
+                <Show
+                    when=move || { completed_pomodoros.get() > 0 }
+                    fallback=|| view! { <NoCompletedPomodoros /> }.into_any()
+                >
+                    <CompletedPomodoros count=completed_pomodoros />
+                </Show>
 
                 <div class="text-6xl font-mono mb-8">{formatted_time}</div>
 
