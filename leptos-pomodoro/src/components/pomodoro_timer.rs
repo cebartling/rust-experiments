@@ -62,6 +62,10 @@ pub fn PomodoroTimer() -> impl IntoView {
         set_is_paused.set(true);
     };
 
+    let stop_timer = move |_| {
+        set_is_active.set(false);
+    };
+
     let reset_timer = move |_| {
         set_is_active.set(false);
         set_is_paused.set(false);
@@ -109,7 +113,15 @@ pub fn PomodoroTimer() -> impl IntoView {
                     </button>
 
                     <button
-                        class="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                        class="px-6 py-2 bg-red-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+                        on:click=stop_timer
+                        disabled=move || !is_active.get() || is_paused.get()
+                    >
+                        "Stop"
+                    </button>
+
+                    <button
+                        class="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
                         on:click=reset_timer
                     >
                         "Reset"
