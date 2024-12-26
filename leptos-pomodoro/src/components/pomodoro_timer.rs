@@ -64,6 +64,7 @@ pub fn PomodoroTimer() -> impl IntoView {
 
     let stop_timer = move |_| {
         set_is_active.set(false);
+        set_time_remaining.set(0);
     };
 
     let reset_timer = move |_| {
