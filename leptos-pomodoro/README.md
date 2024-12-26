@@ -52,7 +52,23 @@ Before you begin, ensure you have the following installed:
    trunk serve
    ```
 
-The application will be available at `http://127.0.0.1:8080`
+   The application will be available at `http://127.0.0.1:8080`
+
+### Formatting with leptosfmt
+
+Install the crate:
+
+```shell
+cargo install leptosfmt
+```
+
+To format your Leptos source code, run the following command:
+
+```shell
+leptosfmt ./**/*.rs
+```
+
+This will format all Rust files in the project containing `view!` macro markup.
 
 ## License
 
