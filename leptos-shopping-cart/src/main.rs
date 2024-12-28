@@ -1,4 +1,5 @@
 mod components;
+mod types;
 
 use leptos::prelude::*;
 use crate::components::app::App;
