@@ -7,6 +7,12 @@ stage = "build"
 command = "sh"
 command_arguments = ["-c", "npx tailwindcss -i styles/input.css -o styles/output.css"]
 
+#[[hooks]]
+#stage = "build"
+#command = "sh"
+#command_arguments = ["-c", "json-server json-server/api/db.json --static json-server/public"]
+
+
 [serve]
 address = "127.0.0.1"
 port = 8080
